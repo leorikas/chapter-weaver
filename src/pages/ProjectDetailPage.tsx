@@ -5,6 +5,8 @@ import { ChapterList } from '@/components/ChapterList';
 import { ActionBar } from '@/components/ActionBar';
 import { BulkUploadDialog } from '@/components/BulkUploadDialog';
 import { TranslateDialog } from '@/components/TranslateDialog';
+import { GlossaryDialog } from '@/components/GlossaryDialog';
+import { FindHieroglyphsDialog } from '@/components/FindHieroglyphsDialog';
 import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, 
@@ -19,7 +21,8 @@ import {
   Upload,
   Plus,
   Download,
-  RefreshCw
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -39,6 +42,8 @@ export default function ProjectDetailPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'translated' | 'pending'>('all');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isTranslateOpen, setIsTranslateOpen] = useState(false);
+  const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
+  const [isFindHieroglyphsOpen, setIsFindHieroglyphsOpen] = useState(false);
 
   if (!project) {
     return (
@@ -195,7 +200,13 @@ export default function ProjectDetailPage() {
               <Settings className="w-4 h-4" />
             </Button>
 
-            <Button variant="secondary" size="icon">
+            <Button 
+              variant="secondary" 
+              size="icon"
+              onClick={() => setIsFindHieroglyphsOpen(true)}
+              disabled={selectedChapters.length === 0}
+              title="Найти иероглифы в переводе"
+            >
               <AlertTriangle className="w-4 h-4 text-destructive" />
             </Button>
 
@@ -209,6 +220,16 @@ export default function ProjectDetailPage() {
               onClick={() => setIsUploadOpen(true)}
             >
               <Upload className="w-4 h-4" />
+            </Button>
+
+            <Button 
+              variant="secondary" 
+              size="icon"
+              onClick={() => setIsGlossaryOpen(true)}
+              title="Открыть глоссарий проекта"
+              className="bg-warning/20 hover:bg-warning/30"
+            >
+              <BookOpen className="w-4 h-4 text-warning" />
             </Button>
 
             <Button variant="secondary" size="icon">
@@ -260,6 +281,18 @@ export default function ProjectDetailPage() {
           selectedCount={selectedChapters.length}
           selectedChapterNumbers={selectedChapterNumbers}
           onTranslate={handleTranslate}
+        />
+
+        <GlossaryDialog
+          open={isGlossaryOpen}
+          onOpenChange={setIsGlossaryOpen}
+          projectTitle={project.title}
+        />
+
+        <FindHieroglyphsDialog
+          open={isFindHieroglyphsOpen}
+          onOpenChange={setIsFindHieroglyphsOpen}
+          selectedChapters={selectedChapters}
         />
       </div>
     </div>

@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { Chapter } from '@/types';
-import { Checkbox } from './ui/checkbox';
-import { Check } from 'lucide-react';
+import { Check, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from './ui/button';
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -10,12 +10,19 @@ interface ChapterListProps {
 }
 
 export function ChapterList({ chapters, selectedChapters, onSelectionChange }: ChapterListProps) {
-  const toggleChapter = (id: string) => {
+  const navigate = useNavigate();
+
+  const toggleChapter = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (selectedChapters.includes(id)) {
       onSelectionChange(selectedChapters.filter(c => c !== id));
     } else {
       onSelectionChange([...selectedChapters, id]);
     }
+  };
+
+  const openChapter = (chapter: Chapter) => {
+    navigate(`/project/${chapter.projectId}/chapter/${chapter.id}`);
   };
 
   const isSelected = (id: string) => selectedChapters.includes(id);
@@ -29,13 +36,16 @@ export function ChapterList({ chapters, selectedChapters, onSelectionChange }: C
             isSelected(chapter.id) ? 'chapter-selected' : ''
           }`}
           style={{ animationDelay: `${index * 0.03}s` }}
-          onClick={() => toggleChapter(chapter.id)}
+          onClick={() => openChapter(chapter)}
         >
-          <div className={`w-6 h-6 rounded flex items-center justify-center transition-all ${
-            isSelected(chapter.id) 
-              ? 'bg-primary text-primary-foreground' 
-              : 'bg-secondary border border-border'
-          }`}>
+          <div 
+            className={`w-6 h-6 rounded flex items-center justify-center transition-all cursor-pointer ${
+              isSelected(chapter.id) 
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-secondary border border-border hover:border-primary/50'
+            }`}
+            onClick={(e) => toggleChapter(chapter.id, e)}
+          >
             {isSelected(chapter.id) && <Check className="w-4 h-4" />}
           </div>
           
@@ -53,6 +63,18 @@ export function ChapterList({ chapters, selectedChapters, onSelectionChange }: C
           {chapter.status === 'translated' && (
             <div className="w-2 h-2 rounded-full bg-success" />
           )}
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="opacity-0 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              openChapter(chapter);
+            }}
+          >
+            <ExternalLink className="w-4 h-4" />
+          </Button>
         </div>
       ))}
     </div>
