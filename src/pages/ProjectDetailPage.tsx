@@ -8,6 +8,7 @@ import { TranslateDialog } from '@/components/TranslateDialog';
 import { GlossaryDialog } from '@/components/GlossaryDialog';
 import { FindHieroglyphsDialog } from '@/components/FindHieroglyphsDialog';
 import { LogsPanel, LogEntry } from '@/components/LogsPanel';
+import { ServerStatusIndicator } from '@/components/ServerStatusIndicator';
 import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, 
@@ -34,12 +35,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Chapter } from '@/types';
 import { toast } from 'sonner';
-import { getLogs, GlossaryEntry, sendTranslateJob } from '@/lib/api';
+import { 
+  getLogs, 
+  GlossaryEntry, 
+  sendTranslateJob, 
+  getCompletedTranslations, 
+  acknowledgeTranslation 
+} from '@/lib/api';
 import { 
   TranslationSettings, 
   splitIntoBatches, 
   formatChaptersForTranslation,
   formatGlossaryForTranslation,
+  extractGlossaryFromResponse,
+  mergeGlossaries,
 } from '@/lib/translationService';
 
 // Стандартный системный промпт
@@ -124,6 +133,60 @@ export default function ProjectDetailPage() {
       return () => clearInterval(interval);
     }
   }, [isLogsPanelOpen, fetchLogs]);
+
+  // Автоматическое получение завершённых переводов
+  const fetchCompletedTranslations = useCallback(async () => {
+    if (!id) return;
+    
+    try {
+      const completed = await getCompletedTranslations(id);
+      
+      if (completed.length > 0) {
+        const updatedChapterIds: string[] = [];
+        let newGlossaryEntries: GlossaryEntry[] = [];
+        
+        setChapters(prev => prev.map(chapter => {
+          const translation = completed.find(c => c.chapter_id === chapter.id);
+          if (translation) {
+            updatedChapterIds.push(chapter.id);
+            
+            // Извлекаем глоссарий из перевода
+            if (translation.glossary) {
+              newGlossaryEntries = [...newGlossaryEntries, ...translation.glossary];
+            }
+            
+            return {
+              ...chapter,
+              translatedText: translation.translated_text,
+              status: 'translated' as const,
+            };
+          }
+          return chapter;
+        }));
+        
+        // Обновляем глоссарий новыми терминами
+        if (newGlossaryEntries.length > 0) {
+          setGlossary(prev => mergeGlossaries(prev, newGlossaryEntries));
+          toast.success(`Добавлено ${newGlossaryEntries.length} новых терминов в глоссарий`);
+        }
+        
+        // Подтверждаем получение
+        if (updatedChapterIds.length > 0) {
+          await acknowledgeTranslation(id, updatedChapterIds);
+          toast.success(`Получен перевод ${updatedChapterIds.length} глав`);
+        }
+      }
+    } catch (error) {
+      console.log('Failed to fetch completed translations:', error);
+    }
+  }, [id]);
+
+  // Проверяем завершённые переводы каждые 5 секунд
+  useEffect(() => {
+    fetchCompletedTranslations();
+    const interval = setInterval(fetchCompletedTranslations, 5000);
+    return () => clearInterval(interval);
+  }, [fetchCompletedTranslations]);
 
   const handleClearLogs = () => {
     setLogs([]);
@@ -222,6 +285,7 @@ export default function ProjectDetailPage() {
             Назад
           </Button>
           <div className="flex items-center gap-2">
+            <ServerStatusIndicator />
             <Button variant="outline">
               <Download className="w-4 h-4 mr-2" />
               Экспорт

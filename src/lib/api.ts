@@ -161,3 +161,33 @@ export async function checkServerHealth(): Promise<boolean> {
     return false;
   }
 }
+
+// Получить завершённые переводы для проекта
+export interface CompletedTranslation {
+  chapter_id: string;
+  translated_text: string;
+  glossary?: GlossaryEntry[];
+}
+
+export async function getCompletedTranslations(projectId: string): Promise<CompletedTranslation[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/translate/completed/${projectId}`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+// Подтвердить получение перевода
+export async function acknowledgeTranslation(projectId: string, chapterIds: string[]): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/api/translate/acknowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, chapter_ids: chapterIds }),
+    });
+  } catch {
+    // Игнорируем ошибки
+  }
+}
