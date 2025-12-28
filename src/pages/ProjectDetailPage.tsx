@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { mockProjects, mockChapters } from '@/lib/mockData';
 import { ChapterList } from '@/components/ChapterList';
@@ -7,6 +7,7 @@ import { BulkUploadDialog } from '@/components/BulkUploadDialog';
 import { TranslateDialog } from '@/components/TranslateDialog';
 import { GlossaryDialog } from '@/components/GlossaryDialog';
 import { FindHieroglyphsDialog } from '@/components/FindHieroglyphsDialog';
+import { LogsPanel, LogEntry } from '@/components/LogsPanel';
 import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, 
@@ -22,7 +23,8 @@ import {
   Plus,
   Download,
   RefreshCw,
-  BookOpen
+  BookOpen,
+  ScrollText
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -32,6 +34,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Chapter } from '@/types';
 import { toast } from 'sonner';
+import { getLogs } from '@/lib/api';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -44,6 +47,8 @@ export default function ProjectDetailPage() {
   const [isTranslateOpen, setIsTranslateOpen] = useState(false);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [isFindHieroglyphsOpen, setIsFindHieroglyphsOpen] = useState(false);
+  const [isLogsPanelOpen, setIsLogsPanelOpen] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
   if (!project) {
     return (
@@ -71,28 +76,38 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleUpload = (file: File, mode: 'auto' | 'manual') => {
-    // Simulate parsing file and adding chapters
-    const newChapters: Chapter[] = [
-      {
-        id: `ch${chapters.length + 1}`,
-        projectId: id!,
-        number: chapters.length + 1,
-        title: '第7章 新的开始',
-        status: 'pending',
-        createdAt: new Date().toISOString().split('T')[0],
-      },
-      {
-        id: `ch${chapters.length + 2}`,
-        projectId: id!,
-        number: chapters.length + 2,
-        title: '第8章 意外的相遇',
-        status: 'pending',
-        createdAt: new Date().toISOString().split('T')[0],
-      },
-    ];
+  const handleUpload = (newChapters: Chapter[]) => {
     setChapters([...chapters, ...newChapters]);
-    toast.success(`Добавлено ${newChapters.length} глав из файла ${file.name}`);
+    toast.success(`Добавлено ${newChapters.length} глав`);
+  };
+
+  const fetchLogs = useCallback(async () => {
+    if (!id) return;
+    try {
+      const serverLogs = await getLogs(id);
+      const formattedLogs: LogEntry[] = serverLogs.map((log, index) => ({
+        id: `log_${index}`,
+        timestamp: log.time,
+        message: log.msg,
+        type: log.type,
+      }));
+      setLogs(formattedLogs);
+    } catch (error) {
+      console.log('Server not available, using empty logs');
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (isLogsPanelOpen) {
+      fetchLogs();
+      const interval = setInterval(fetchLogs, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isLogsPanelOpen, fetchLogs]);
+
+  const handleClearLogs = () => {
+    setLogs([]);
+    toast.success('Логи очищены');
   };
 
   const handleTranslate = (settings: any) => {
@@ -107,8 +122,19 @@ export default function ProjectDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 lg:p-8 pb-24">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-background flex">
+      {/* Logs Panel */}
+      {isLogsPanelOpen && (
+        <LogsPanel
+          projectTitle={project.title}
+          logs={logs}
+          onClearLogs={handleClearLogs}
+          onClose={() => setIsLogsPanelOpen(false)}
+        />
+      )}
+      
+      <div className="flex-1 p-6 lg:p-8 pb-24">
+        <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Button variant="ghost" onClick={() => navigate('/')}>
@@ -232,6 +258,15 @@ export default function ProjectDetailPage() {
               <BookOpen className="w-4 h-4 text-warning" />
             </Button>
 
+            <Button 
+              variant={isLogsPanelOpen ? 'default' : 'secondary'} 
+              size="icon"
+              onClick={() => setIsLogsPanelOpen(!isLogsPanelOpen)}
+              title="Логи перевода"
+            >
+              <ScrollText className="w-4 h-4" />
+            </Button>
+
             <Button variant="secondary" size="icon">
               <Plus className="w-4 h-4" />
             </Button>
@@ -273,6 +308,8 @@ export default function ProjectDetailPage() {
           open={isUploadOpen}
           onOpenChange={setIsUploadOpen}
           onUpload={handleUpload}
+          projectId={id!}
+          existingChaptersCount={chapters.length}
         />
 
         <TranslateDialog
@@ -294,6 +331,7 @@ export default function ProjectDetailPage() {
           onOpenChange={setIsFindHieroglyphsOpen}
           selectedChapters={selectedChapters}
         />
+        </div>
       </div>
     </div>
   );
