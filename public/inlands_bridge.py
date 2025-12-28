@@ -2,6 +2,37 @@
 """
 InLands Bridge Agent
 Локальный агент для перевода через Perplexity / Google AI Studio
+
+Инструкция для перевода через Perplexity:
+
+Шаг 1: Скачать Opera Browser (или любой браузер на хромиуме, который не основной).
+
+Шаг 2: Создать на вашем системном диске папку InLandsHistory. 
+        Итоговый путь: "C:\\InLandsHistory"
+
+Шаг 3: Создать папку на рабочем столе: Perplexity, найти ярлык браузера 
+        и переместить ярлык в папку Perplexity.
+
+Шаг 4: Кликнуть по ярлыку браузера правой кнопкой - Свойства. 
+        В поле объект добавить в конец пробел и после него вставить строку:
+        --remote-debugging-port=9222 --user-data-dir="C:\\InLandsHistory"
+        
+        Пример для Opera:
+        "C:\\Program Files\\Opera\\launcher.exe" --remote-debugging-port=9222 --user-data-dir="C:\\InLandsHistory"
+
+Шаг 5: Купите PRO аккаунт Perplexity. Авторизуйтесь на perplexity.ai 
+        через ярлык в папке Perplexity. Закройте браузер.
+
+Шаг 6: Поместите Bridge Install.bat в папку Perplexity и запустите.
+
+Шаг 7: Получите API-ключ InLands и скачайте InLands Bridge.py.
+
+Шаг 8: Запустите Bridge Install.bat для установки зависимостей.
+
+Шаг 9: Откройте браузер через модифицированный ярлык.
+
+Шаг 10: Запустите InLands Bridge.py и начните перевод.
+        Максимум 5 глав за раз. Не больше 3 книг одновременно.
 """
 
 import asyncio

@@ -116,29 +116,46 @@ export function SystemPromptDialog({ open, onOpenChange, prompt, onSave }: Syste
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Настроить системный промпт</DialogTitle>
+          <DialogTitle className="text-xl font-bold">Системный промпт</DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-hidden flex flex-col mt-4">
+        <div className="flex-1 overflow-hidden flex flex-col mt-4 space-y-4">
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-sm">
+              Этот промпт определяет стиль и правила перевода для всех провайдеров (Google, OpenRouter, Perplexity). 
+              Вы можете адаптировать его под свои нужды.
+            </p>
+            <p className="text-warning text-sm">
+              <span className="font-medium">Важно:</span> Не удаляйте инструкции по формату JSON и разделителям глав 
+              (например, `===CHAPTER_START...`), иначе система не сможет распознать ответ модели.
+            </p>
+          </div>
+
           <Textarea
             value={localPrompt}
             onChange={(e) => setLocalPrompt(e.target.value)}
-            className="flex-1 bg-secondary border-border font-mono text-sm min-h-[400px] resize-none"
+            className="flex-1 bg-secondary border-border font-mono text-sm min-h-[350px] resize-none"
           />
 
-          <div className="flex justify-between items-center pt-4">
-            <Button variant="outline" onClick={handleReset}>
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Сбросить к умолчанию
+          <div className="flex justify-between items-center">
+            <button 
+              className="text-warning hover:underline text-sm"
+              onClick={handleReset}
+            >
+              Восстановить по умолчанию
+            </button>
+            <span className="text-muted-foreground text-sm">
+              Длина: {localPrompt.length}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center pt-2">
+            <Button variant="gradient" onClick={handleSave}>
+              Сохранить
             </Button>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => onOpenChange(false)}>
-                Отмена
-              </Button>
-              <Button variant="warning" onClick={handleSave}>
-                Сохранить промпт
-              </Button>
-            </div>
+            <button className="text-warning hover:underline text-sm">
+              Добавить ключи
+            </button>
           </div>
         </div>
       </DialogContent>
