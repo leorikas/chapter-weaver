@@ -5,15 +5,23 @@ import { mockProjects } from '@/lib/mockData';
 import { StatCard } from '@/components/StatCard';
 import { ProjectCard } from '@/components/ProjectCard';
 import { NewProjectDialog } from '@/components/NewProjectDialog';
+import { EditProjectDialog } from '@/components/EditProjectDialog';
+import { RulateCookiesDialog } from '@/components/RulateCookiesDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Eye, Bookmark, DollarSign, Plus, Search, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
+  const [isCookiesOpen, setIsCookiesOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [rulateCookies, setRulateCookies] = useState('');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     in_progress: true,
     completed: true,
@@ -55,8 +63,23 @@ export default function ProjectsPage() {
     setProjects([newProject, ...projects]);
   };
 
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project);
+    setIsEditProjectOpen(true);
+  };
+
+  const handleSaveProject = (updated: Project) => {
+    setProjects(projects.map(p => p.id === updated.id ? updated : p));
+    toast.success('Проект обновлён');
+  };
+
   const handleDeleteProject = (id: string) => {
     setProjects(projects.filter(p => p.id !== id));
+  };
+
+  const handleSaveCookies = (cookies: string) => {
+    setRulateCookies(cookies);
+    toast.success('Куки сохранены');
   };
 
   const statusLabels: Record<string, string> = {
@@ -85,9 +108,16 @@ export default function ProjectsPage() {
                 className="pl-10 bg-secondary border-border"
               />
             </div>
-            <Button variant="ghost" size="icon">
-              <Settings className="w-5 h-5" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => setIsCookiesOpen(true)}>
+                    <Settings className="w-5 h-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Настройки Rulate</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Button variant="gradient" onClick={() => setIsNewProjectOpen(true)}>
               <Plus className="w-4 h-4" />
               Новый проект
@@ -155,6 +185,7 @@ export default function ProjectsPage() {
                       project={project}
                       index={index}
                       onClick={() => navigate(`/project/${project.id}`)}
+                      onEdit={() => handleEditProject(project)}
                       onDelete={() => handleDeleteProject(project.id)}
                     />
                   ))}
@@ -168,6 +199,20 @@ export default function ProjectsPage() {
           open={isNewProjectOpen}
           onOpenChange={setIsNewProjectOpen}
           onSubmit={handleNewProject}
+        />
+
+        <EditProjectDialog
+          open={isEditProjectOpen}
+          onOpenChange={setIsEditProjectOpen}
+          project={editingProject}
+          onSave={handleSaveProject}
+        />
+
+        <RulateCookiesDialog
+          open={isCookiesOpen}
+          onOpenChange={setIsCookiesOpen}
+          cookies={rulateCookies}
+          onSave={handleSaveCookies}
         />
       </div>
     </div>
