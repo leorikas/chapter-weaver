@@ -7,10 +7,11 @@ interface ProjectCardProps {
   project: Project;
   index: number;
   onClick: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }
 
-export function ProjectCard({ project, index, onClick, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, index, onClick, onEdit, onDelete }: ProjectCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const progress = (project.translatedChapters / project.totalChapters) * 100;
   const isComplete = progress === 100;
@@ -50,7 +51,14 @@ export function ProjectCard({ project, index, onClick, onDelete }: ProjectCardPr
               <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
                 <ExternalLink className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+              >
                 <PenLine className="w-4 h-4" />
               </Button>
               <Button 
