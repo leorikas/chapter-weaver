@@ -1,24 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
-import { X, ChevronDown, ChevronUp, Trash2, PenLine } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Trash2, PenLine, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface GlossaryTerm {
-  id: string;
-  original: string;
-  english: string;
-  russian: string;
-  alternatives: string;
-  isProperName: boolean;
-  gender: 'M' | 'F' | 'N' | null;
-  animacy: 'animate' | 'inanimate' | null;
-  number: 'singular' | 'plural' | null;
-  description: string;
-}
+import { downloadGlossary, readGlossaryFile, GlossaryTerm } from '@/lib/glossaryUtils';
 
 interface GlossaryDialogProps {
   open: boolean;
@@ -30,6 +18,7 @@ export function GlossaryDialog({ open, onOpenChange, projectTitle }: GlossaryDia
   const [terms, setTerms] = useState<GlossaryTerm[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormExpanded, setIsFormExpanded] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [original, setOriginal] = useState('');
@@ -47,6 +36,29 @@ export function GlossaryDialog({ open, onOpenChange, projectTitle }: GlossaryDia
     term.russian.toLowerCase().includes(searchQuery.toLowerCase()) ||
     term.english.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleExport = () => {
+    if (terms.length === 0) {
+      toast.error('Глоссарий пуст');
+      return;
+    }
+    downloadGlossary(terms, `glossary_${projectTitle.replace(/\s+/g, '_')}.json`);
+    toast.success('Глоссарий экспортирован');
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const imported = await readGlossaryFile(file);
+      setTerms([...terms, ...imported]);
+      toast.success(`Импортировано ${imported.length} терминов`);
+    } catch (error) {
+      toast.error('Ошибка импорта глоссария');
+    }
+    e.target.value = '';
+  };
 
   const handleAddTerm = () => {
     if (!original.trim() || !russian.trim()) {
@@ -107,6 +119,19 @@ export function GlossaryDialog({ open, onOpenChange, projectTitle }: GlossaryDia
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-64 bg-secondary border-border"
               />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImport}
+              />
+              <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} title="Импорт">
+                <Upload className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={handleExport} title="Экспорт">
+                <Download className="w-4 h-4" />
+              </Button>
               <Button variant="destructive" onClick={handleClearAll}>
                 Очистить
               </Button>
