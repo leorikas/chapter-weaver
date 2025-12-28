@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
+import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Download, AlertTriangle, Loader2 } from 'lucide-react';
+import { Download, AlertTriangle, Loader2, Upload, ChevronDown, ChevronUp, FileDown, FileUp } from 'lucide-react';
 import { TranslationSettings } from '@/lib/translationService';
+import { GlossaryEntry } from '@/lib/api';
+import { toast } from 'sonner';
 
 interface TranslateDialogProps {
   open: boolean;
@@ -16,6 +19,10 @@ interface TranslateDialogProps {
   selectedChapterNumbers: number[];
   onTranslate: (settings: TranslationSettings) => Promise<void>;
   isTranslating?: boolean;
+  systemPrompt: string;
+  onSystemPromptChange: (prompt: string) => void;
+  glossary: GlossaryEntry[];
+  onGlossaryChange: (glossary: GlossaryEntry[]) => void;
 }
 
 export function TranslateDialog({ 
@@ -25,6 +32,10 @@ export function TranslateDialog({
   selectedChapterNumbers,
   onTranslate,
   isTranslating = false,
+  systemPrompt,
+  onSystemPromptChange,
+  glossary,
+  onGlossaryChange,
 }: TranslateDialogProps) {
   const [provider, setProvider] = useState<'google' | 'local_bridge' | 'openrouter'>('local_bridge');
   const [targetService, setTargetService] = useState<'perplexity' | 'google_ai_studio'>('perplexity');
@@ -32,6 +43,8 @@ export function TranslateDialog({
   const [batchSize, setBatchSize] = useState('5');
   const [cleanAfterTranslation, setCleanAfterTranslation] = useState(true);
   const [convertMarkdown, setConvertMarkdown] = useState(true);
+  const [isPromptExpanded, setIsPromptExpanded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async () => {
     const settings: TranslationSettings = {
@@ -44,6 +57,59 @@ export function TranslateDialog({
     };
     
     await onTranslate(settings);
+  };
+
+  const handleExportGlossary = () => {
+    if (glossary.length === 0) {
+      toast.error('Глоссарий пуст');
+      return;
+    }
+    
+    const jsonContent = JSON.stringify(glossary, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'glossary.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Глоссарий экспортирован');
+  };
+
+  const handleImportGlossary = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+        
+        if (!Array.isArray(parsed)) {
+          throw new Error('Неверный формат: ожидается массив');
+        }
+
+        const validatedGlossary: GlossaryEntry[] = parsed.map((item: any) => ({
+          original: item.original || '',
+          'english-translation': item['english-translation'] || '',
+          'russian-translation': item['russian-translation'] || '',
+          'alt-russian-translation': item['alt-russian-translation'] || 'Нет',
+          gender: item.gender || 'neut',
+        }));
+
+        onGlossaryChange(validatedGlossary);
+        toast.success(`Импортировано ${validatedGlossary.length} терминов`);
+      } catch (error) {
+        toast.error('Ошибка при импорте глоссария: неверный формат JSON');
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -64,6 +130,44 @@ export function TranslateDialog({
             <button className="text-sm text-primary mt-2 hover:underline">
               Сбросить и выбрать диапазон
             </button>
+          </div>
+
+          {/* Глоссарий - импорт/экспорт */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Глоссарий проекта</Label>
+              <span className="text-sm text-muted-foreground">
+                {glossary.length} терминов
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <FileUp className="w-4 h-4 mr-2" />
+                Импорт
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="flex-1"
+                onClick={handleExportGlossary}
+                disabled={glossary.length === 0}
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                Экспорт
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleImportGlossary}
+                className="hidden"
+              />
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -191,9 +295,25 @@ export function TranslateDialog({
             </p>
           </div>
 
-          <button className="text-primary text-sm hover:underline">
-            Настроить системный промпт
-          </button>
+          {/* Системный промпт */}
+          <div className="space-y-3">
+            <button 
+              className="text-primary text-sm hover:underline flex items-center gap-1"
+              onClick={() => setIsPromptExpanded(!isPromptExpanded)}
+            >
+              Настроить системный промпт
+              {isPromptExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            
+            {isPromptExpanded && (
+              <Textarea
+                value={systemPrompt}
+                onChange={(e) => onSystemPromptChange(e.target.value)}
+                className="bg-secondary border-border min-h-[200px] text-sm font-mono"
+                placeholder="Введите системный промпт для переводчика..."
+              />
+            )}
+          </div>
 
           <div className="flex justify-between items-center pt-4">
             <button className="text-primary text-sm hover:underline">

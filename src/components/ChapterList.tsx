@@ -1,5 +1,5 @@
 import { Chapter } from '@/types';
-import { Check, ExternalLink } from 'lucide-react';
+import { Check, ExternalLink, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 
@@ -7,9 +7,15 @@ interface ChapterListProps {
   chapters: Chapter[];
   selectedChapters: string[];
   onSelectionChange: (ids: string[]) => void;
+  chaptersWithHieroglyphs?: string[]; // ID глав с найденными иероглифами
 }
 
-export function ChapterList({ chapters, selectedChapters, onSelectionChange }: ChapterListProps) {
+export function ChapterList({ 
+  chapters, 
+  selectedChapters, 
+  onSelectionChange,
+  chaptersWithHieroglyphs = [],
+}: ChapterListProps) {
   const navigate = useNavigate();
 
   const toggleChapter = (id: string, e: React.MouseEvent) => {
@@ -26,6 +32,7 @@ export function ChapterList({ chapters, selectedChapters, onSelectionChange }: C
   };
 
   const isSelected = (id: string) => selectedChapters.includes(id);
+  const hasHieroglyphs = (id: string) => chaptersWithHieroglyphs.includes(id);
 
   return (
     <div className="space-y-2">
@@ -34,7 +41,7 @@ export function ChapterList({ chapters, selectedChapters, onSelectionChange }: C
           key={chapter.id}
           className={`chapter-item animate-fade-in flex items-center gap-4 ${
             isSelected(chapter.id) ? 'chapter-selected' : ''
-          }`}
+          } ${hasHieroglyphs(chapter.id) ? 'border-destructive bg-destructive/10' : ''}`}
           style={{ animationDelay: `${index * 0.03}s` }}
           onClick={() => openChapter(chapter)}
         >
@@ -51,7 +58,11 @@ export function ChapterList({ chapters, selectedChapters, onSelectionChange }: C
           
           <div className="flex-1">
             <h4 className={`font-medium ${
-              chapter.status === 'translated' ? 'text-foreground' : 'text-muted-foreground'
+              hasHieroglyphs(chapter.id) 
+                ? 'text-destructive' 
+                : chapter.status === 'translated' 
+                  ? 'text-foreground' 
+                  : 'text-muted-foreground'
             }`}>
               {chapter.title}
             </h4>
@@ -60,8 +71,18 @@ export function ChapterList({ chapters, selectedChapters, onSelectionChange }: C
             </p>
           </div>
           
-          {chapter.status === 'translated' && (
+          {chapter.status === 'translating' && (
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          )}
+          
+          {chapter.status === 'translated' && !hasHieroglyphs(chapter.id) && (
             <div className="w-2 h-2 rounded-full bg-success" />
+          )}
+          
+          {hasHieroglyphs(chapter.id) && (
+            <div className="text-xs text-destructive font-medium px-2 py-1 bg-destructive/20 rounded">
+              Иероглифы
+            </div>
           )}
           
           <Button 
