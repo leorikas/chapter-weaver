@@ -1,21 +1,35 @@
 export interface GlossaryTerm {
   id: string;
   original: string;
-  english: string;
-  russian: string;
-  alternatives: string;
-  isProperName: boolean;
-  gender: 'M' | 'F' | 'N' | null;
-  animacy: 'animate' | 'inanimate' | null;
-  number: 'singular' | 'plural' | null;
-  description: string;
+  englishTranslation: string;
+  russianTranslation: string;
+  altRussianTranslation: string;
+  gender: 'masc' | 'femn' | 'neut' | null;
+}
+
+/**
+ * Формат JSON для экспорта/импорта глоссария
+ */
+export interface GlossaryJsonEntry {
+  original: string;
+  'english-translation': string;
+  'russian-translation': string;
+  'alt-russian-translation': string;
+  gender: 'masc' | 'femn' | 'neut';
 }
 
 /**
  * Экспортирует глоссарий в JSON строку
  */
 export function exportGlossaryToJson(terms: GlossaryTerm[]): string {
-  return JSON.stringify(terms, null, 2);
+  const jsonEntries: GlossaryJsonEntry[] = terms.map(term => ({
+    original: term.original,
+    'english-translation': term.englishTranslation,
+    'russian-translation': term.russianTranslation,
+    'alt-russian-translation': term.altRussianTranslation || 'Нет',
+    gender: term.gender || 'neut',
+  }));
+  return JSON.stringify(jsonEntries, null, 2);
 }
 
 /**
@@ -29,16 +43,12 @@ export function importGlossaryFromJson(jsonString: string): GlossaryTerm[] {
     }
     
     return parsed.map((item: any, index: number) => ({
-      id: item.id || `imported_${Date.now()}_${index}`,
+      id: `imported_${Date.now()}_${index}`,
       original: item.original || '',
-      english: item.english || '',
-      russian: item.russian || '',
-      alternatives: item.alternatives || '',
-      isProperName: item.isProperName || false,
+      englishTranslation: item['english-translation'] || item.englishTranslation || '',
+      russianTranslation: item['russian-translation'] || item.russianTranslation || '',
+      altRussianTranslation: item['alt-russian-translation'] || item.altRussianTranslation || '',
       gender: item.gender || null,
-      animacy: item.animacy || null,
-      number: item.number || null,
-      description: item.description || '',
     }));
   } catch (error) {
     throw new Error('Failed to parse glossary JSON');
