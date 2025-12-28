@@ -102,9 +102,24 @@ export function extractChaptersFromResponse(responseText: string): { id: string;
 // Объединяет новые термины глоссария с существующими (без дубликатов по original)
 export function mergeGlossaries(existing: GlossaryEntry[], newEntries: GlossaryEntry[]): GlossaryEntry[] {
   const existingOriginals = new Set(existing.map(e => e.original));
-  const uniqueNewEntries = newEntries.filter(entry => !existingOriginals.has(entry.original));
+  const uniqueNewEntries = newEntries.filter(entry => 
+    entry.original && !existingOriginals.has(entry.original)
+  );
   
   return [...existing, ...uniqueNewEntries];
+}
+
+// Валидирует и нормализует глоссарий
+export function normalizeGlossaryEntry(entry: any): GlossaryEntry | null {
+  if (!entry || !entry.original) return null;
+  
+  return {
+    original: entry.original,
+    'english-translation': entry['english-translation'] || '',
+    'russian-translation': entry['russian-translation'] || '',
+    'alt-russian-translation': entry['alt-russian-translation'] || 'Нет',
+    gender: entry.gender || 'neut',
+  };
 }
 
 // Отправляет пакет глав на перевод
