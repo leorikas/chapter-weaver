@@ -1,14 +1,14 @@
-import { Chapter } from '@/types';
+import { ParsedChapter } from '@/components/ChapterSelectionDialog';
 
 /**
  * Парсит TXT файл и разделяет на главы по паттерну 第X章
+ * Возвращает ParsedChapter[] для выбора пользователем
  */
 export function parseChaptersFromText(
   text: string, 
-  projectId: string,
-  startNumber: number = 1
-): Chapter[] {
-  const chapters: Chapter[] = [];
+  mode: 'auto' | 'manual' = 'auto'
+): ParsedChapter[] {
+  const chapters: ParsedChapter[] = [];
   
   // Паттерн для поиска глав: 第X章 (с возможным заголовком)
   // Также поддерживает: 第一章, 第二章 и т.д. (китайские цифры)
@@ -19,14 +19,12 @@ export function parseChaptersFromText(
   
   if (matchArray.length === 0) {
     // Если нет глав, возвращаем весь текст как одну главу
+    const content = text.trim();
     return [{
-      id: `ch_${Date.now()}_1`,
-      projectId,
-      number: startNumber,
+      id: `parsed_${Date.now()}_1`,
       title: 'Глава без названия',
-      originalText: text.trim(),
-      status: 'pending',
-      createdAt: new Date().toISOString().split('T')[0],
+      preview: content.slice(0, 150) + (content.length > 150 ? '...' : ''),
+      content,
     }];
   }
   
@@ -39,15 +37,14 @@ export function parseChaptersFromText(
       : text.length;
     
     const content = text.slice(startIndex, endIndex).trim();
+    const contentWithoutTitle = content.replace(title, '').trim();
+    const preview = contentWithoutTitle.slice(0, 150) + (contentWithoutTitle.length > 150 ? '...' : '');
     
     chapters.push({
-      id: `ch_${Date.now()}_${i + 1}`,
-      projectId,
-      number: startNumber + i,
+      id: `parsed_${Date.now()}_${i + 1}`,
       title,
-      originalText: content,
-      status: 'pending',
-      createdAt: new Date().toISOString().split('T')[0],
+      preview,
+      content,
     });
   }
   

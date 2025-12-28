@@ -3,18 +3,32 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Label } from './ui/label';
-import { Upload, Check, FileText } from 'lucide-react';
+import { Upload, Check, FileText, Loader2 } from 'lucide-react';
+import { parseChaptersFromText } from '@/lib/chapterParser';
+import { ChapterSelectionDialog, ParsedChapter } from './ChapterSelectionDialog';
+import { Chapter } from '@/types';
 
 interface BulkUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpload: (file: File, mode: 'auto' | 'manual') => void;
+  onUpload: (chapters: Chapter[]) => void;
+  projectId: string;
+  existingChaptersCount: number;
 }
 
-export function BulkUploadDialog({ open, onOpenChange, onUpload }: BulkUploadDialogProps) {
+export function BulkUploadDialog({ 
+  open, 
+  onOpenChange, 
+  onUpload,
+  projectId,
+  existingChaptersCount
+}: BulkUploadDialogProps) {
   const [mode, setMode] = useState<'auto' | 'manual'>('auto');
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsedChapters, setParsedChapters] = useState<ParsedChapter[]>([]);
+  const [showSelection, setShowSelection] = useState(false);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -32,16 +46,62 @@ export function BulkUploadDialog({ open, onOpenChange, onUpload }: BulkUploadDia
     }
   };
 
-  const handleSubmit = () => {
-    if (file) {
-      onUpload(file, mode);
-      setFile(null);
-      onOpenChange(false);
+  const handleNext = async () => {
+    if (!file) return;
+    
+    setIsParsing(true);
+    try {
+      const text = await file.text();
+      const chapters = parseChaptersFromText(text, mode);
+      setParsedChapters(chapters);
+      setShowSelection(true);
+    } catch (error) {
+      console.error('Error parsing file:', error);
+    } finally {
+      setIsParsing(false);
     }
   };
 
+  const handleConfirmSelection = (selected: ParsedChapter[]) => {
+    const newChapters: Chapter[] = selected.map((ch, index) => ({
+      id: `ch_${Date.now()}_${index}`,
+      projectId,
+      number: existingChaptersCount + index + 1,
+      title: ch.title,
+      originalText: ch.content,
+      status: 'pending' as const,
+      createdAt: new Date().toISOString().split('T')[0],
+    }));
+    
+    onUpload(newChapters);
+    handleClose();
+  };
+
+  const handleBack = () => {
+    setShowSelection(false);
+  };
+
+  const handleClose = () => {
+    setFile(null);
+    setParsedChapters([]);
+    setShowSelection(false);
+    onOpenChange(false);
+  };
+
+  if (showSelection) {
+    return (
+      <ChapterSelectionDialog
+        open={open}
+        onOpenChange={handleClose}
+        chapters={parsedChapters}
+        onConfirm={handleConfirmSelection}
+        onBack={handleBack}
+      />
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="bg-card border-border max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Массовая загрузка глав</DialogTitle>
@@ -98,11 +158,18 @@ export function BulkUploadDialog({ open, onOpenChange, onUpload }: BulkUploadDia
           )}
           
           <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            <Button variant="secondary" onClick={handleClose}>
               Отмена
             </Button>
-            <Button onClick={handleSubmit} disabled={!file}>
-              Далее
+            <Button onClick={handleNext} disabled={!file || isParsing}>
+              {isParsing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Анализ...
+                </>
+              ) : (
+                'Далее'
+              )}
             </Button>
           </div>
         </div>
