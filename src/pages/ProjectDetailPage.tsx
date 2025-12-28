@@ -68,6 +68,7 @@ export default function ProjectDetailPage() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
+  const [chaptersWithHieroglyphs, setChaptersWithHieroglyphs] = useState<string[]>([]);
 
   if (!project) {
     return (
@@ -371,6 +372,7 @@ export default function ProjectDetailPage() {
             chapters={filteredChapters}
             selectedChapters={selectedChapters}
             onSelectionChange={setSelectedChapters}
+            chaptersWithHieroglyphs={chaptersWithHieroglyphs}
           />
         )}
 
@@ -398,6 +400,10 @@ export default function ProjectDetailPage() {
           selectedChapterNumbers={selectedChapterNumbers}
           onTranslate={handleTranslate}
           isTranslating={isTranslating}
+          systemPrompt={systemPrompt}
+          onSystemPromptChange={setSystemPrompt}
+          glossary={glossary}
+          onGlossaryChange={setGlossary}
         />
 
         <GlossaryDialog
@@ -410,6 +416,8 @@ export default function ProjectDetailPage() {
           open={isFindHieroglyphsOpen}
           onOpenChange={setIsFindHieroglyphsOpen}
           selectedChapters={selectedChapters}
+          chapters={chapters}
+          onChaptersWithHieroglyphsFound={setChaptersWithHieroglyphs}
         />
         </div>
       </div>
