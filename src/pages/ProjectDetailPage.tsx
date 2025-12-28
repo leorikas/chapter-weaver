@@ -34,7 +34,23 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Chapter } from '@/types';
 import { toast } from 'sonner';
-import { getLogs } from '@/lib/api';
+import { getLogs, GlossaryEntry, sendTranslateJob } from '@/lib/api';
+import { 
+  TranslationSettings, 
+  splitIntoBatches, 
+  formatChaptersForTranslation,
+  formatGlossaryForTranslation,
+} from '@/lib/translationService';
+
+// Стандартный системный промпт
+const DEFAULT_SYSTEM_PROMPT = `Ты — профессиональный переводчик китайских веб-романов на русский язык. Твоя задача:
+
+1. Переводи текст естественно и литературно, сохраняя стиль оригинала
+2. Используй глоссарий для перевода имён, названий и терминов
+3. Сохраняй форматирование: **жирный**, *курсив*, диалоги
+4. Не добавляй свои комментарии или пояснения
+5. Сохраняй маркеры глав: ===CHAPTER-START|ID:X|=== и ===CHAPTER-END|ID:X|===
+6. После перевода добавь новые термины в глоссарий в формате JSON`;
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -49,6 +65,9 @@ export default function ProjectDetailPage() {
   const [isFindHieroglyphsOpen, setIsFindHieroglyphsOpen] = useState(false);
   const [isLogsPanelOpen, setIsLogsPanelOpen] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
+  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
 
   if (!project) {
     return (
@@ -110,9 +129,69 @@ export default function ProjectDetailPage() {
     toast.success('Логи очищены');
   };
 
-  const handleTranslate = (settings: any) => {
-    toast.success(`Начат перевод ${selectedChapters.length} глав`);
-    console.log('Translation settings:', settings);
+  const handleTranslate = async (settings: TranslationSettings) => {
+    if (selectedChapters.length === 0) {
+      toast.error('Выберите главы для перевода');
+      return;
+    }
+    
+    setIsTranslating(true);
+    
+    try {
+      // Получаем выбранные главы
+      const chaptersToTranslate = chapters.filter(c => selectedChapters.includes(c.id));
+      
+      // Разбиваем на пачки
+      const batches = splitIntoBatches(chaptersToTranslate, settings.batchSize);
+      
+      toast.info(`Отправка ${batches.length} пачек на перевод...`);
+      
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        
+        // Форматируем контент глав
+        const chaptersContent = formatChaptersForTranslation(batch);
+        
+        // Глоссарий для текущей пачки (используем весь глоссарий проекта)
+        const glossaryContent = formatGlossaryForTranslation(glossary);
+        
+        const fullContent = glossaryContent 
+          ? `${chaptersContent}\n${glossaryContent}`
+          : chaptersContent;
+        
+        // Отправляем пачку на перевод
+        await sendTranslateJob({
+          project_id: id!,
+          chapter_ids: batch.map(c => c.id),
+          system_prompt: systemPrompt,
+          batch_size: settings.batchSize,
+          provider: settings.provider,
+          target_service: settings.targetService,
+          model: settings.model,
+          chapters_content: fullContent,
+          glossary: glossary,
+        });
+        
+        // Обновляем статус глав на "translating"
+        setChapters(prev => prev.map(c => 
+          batch.some(b => b.id === c.id) 
+            ? { ...c, status: 'translating' as const }
+            : c
+        ));
+        
+        toast.success(`Пачка ${i + 1}/${batches.length} отправлена`);
+      }
+      
+      toast.success(`Все ${batches.length} пачек отправлены на перевод`);
+      setIsTranslateOpen(false);
+      setSelectedChapters([]);
+      
+    } catch (error) {
+      console.error('Translation error:', error);
+      toast.error(`Ошибка перевода: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
   const handleDelete = () => {
@@ -318,6 +397,7 @@ export default function ProjectDetailPage() {
           selectedCount={selectedChapters.length}
           selectedChapterNumbers={selectedChapterNumbers}
           onTranslate={handleTranslate}
+          isTranslating={isTranslating}
         />
 
         <GlossaryDialog
