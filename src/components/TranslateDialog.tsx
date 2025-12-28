@@ -6,14 +6,16 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Download, AlertTriangle } from 'lucide-react';
+import { Download, AlertTriangle, Loader2 } from 'lucide-react';
+import { TranslationSettings } from '@/lib/translationService';
 
 interface TranslateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedCount: number;
   selectedChapterNumbers: number[];
-  onTranslate: (settings: any) => void;
+  onTranslate: (settings: TranslationSettings) => Promise<void>;
+  isTranslating?: boolean;
 }
 
 export function TranslateDialog({ 
@@ -21,25 +23,27 @@ export function TranslateDialog({
   onOpenChange, 
   selectedCount, 
   selectedChapterNumbers,
-  onTranslate 
+  onTranslate,
+  isTranslating = false,
 }: TranslateDialogProps) {
-  const [provider, setProvider] = useState('local_bridge');
-  const [targetService, setTargetService] = useState('perplexity');
+  const [provider, setProvider] = useState<'google' | 'local_bridge' | 'openrouter'>('local_bridge');
+  const [targetService, setTargetService] = useState<'perplexity' | 'google_ai_studio'>('perplexity');
   const [model, setModel] = useState('local_agent');
   const [batchSize, setBatchSize] = useState('5');
   const [cleanAfterTranslation, setCleanAfterTranslation] = useState(true);
   const [convertMarkdown, setConvertMarkdown] = useState(true);
 
-  const handleSubmit = () => {
-    onTranslate({
+  const handleSubmit = async () => {
+    const settings: TranslationSettings = {
       provider,
       targetService,
       model,
-      batchSize: parseInt(batchSize),
+      batchSize: parseInt(batchSize) || 5,
       cleanAfterTranslation,
       convertMarkdown,
-    });
-    onOpenChange(false);
+    };
+    
+    await onTranslate(settings);
   };
 
   return (
@@ -77,7 +81,7 @@ export function TranslateDialog({
                       ? 'border-primary bg-primary/10' 
                       : 'border-border hover:border-primary/50'
                   }`}
-                  onClick={() => setProvider(p.value)}
+                  onClick={() => setProvider(p.value as 'google' | 'local_bridge' | 'openrouter')}
                 >
                   <div className="font-medium">{p.label}</div>
                   <div className="text-xs text-muted-foreground">{p.desc}</div>
@@ -89,7 +93,7 @@ export function TranslateDialog({
           {provider === 'local_bridge' && (
             <div className="space-y-3">
               <Label>Целевой сервис</Label>
-              <RadioGroup value={targetService} onValueChange={setTargetService}>
+              <RadioGroup value={targetService} onValueChange={(v) => setTargetService(v as 'perplexity' | 'google_ai_studio')}>
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="perplexity" id="perplexity" />
@@ -195,8 +199,19 @@ export function TranslateDialog({
             <button className="text-primary text-sm hover:underline">
               Добавить ключи
             </button>
-            <Button variant="success" onClick={handleSubmit}>
-              Начать перевод
+            <Button 
+              variant="success" 
+              onClick={handleSubmit}
+              disabled={isTranslating || selectedCount === 0}
+            >
+              {isTranslating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Отправка...
+                </>
+              ) : (
+                'Начать перевод'
+              )}
             </Button>
           </div>
         </div>

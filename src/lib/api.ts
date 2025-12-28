@@ -37,6 +37,17 @@ export interface TranslateJobRequest {
   chapter_ids: string[];
   system_prompt: string;
   batch_size?: number;
+  provider?: 'google' | 'local_bridge' | 'openrouter';
+  target_service?: 'perplexity' | 'google_ai_studio';
+  model?: string;
+  chapters_content?: string; // Форматированный контент глав для отправки
+  glossary?: GlossaryEntry[]; // Глоссарий для пакета
+}
+
+export interface TranslateJobResponse {
+  status: string;
+  job_id?: string;
+  message?: string;
 }
 
 // Получить все проекты
@@ -65,13 +76,37 @@ export async function getLogs(projectId: string): Promise<LogEntry[]> {
 }
 
 // Отправить задачу на перевод
-export async function sendTranslateJob(job: TranslateJobRequest): Promise<{ status: string }> {
+export async function sendTranslateJob(job: TranslateJobRequest): Promise<TranslateJobResponse> {
   const res = await fetch(`${API_BASE}/api/translate/send`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(job),
   });
-  if (!res.ok) throw new Error('Failed to send translate job');
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Failed to send translate job: ${errorText}`);
+  }
+  return res.json();
+}
+
+// Получить статус задачи
+export async function getTranslateJobStatus(jobId: string): Promise<{ status: string; progress?: number; result?: any }> {
+  const res = await fetch(`${API_BASE}/api/translate/status/${jobId}`);
+  if (!res.ok) throw new Error('Failed to get job status');
+  return res.json();
+}
+
+// Обновить глоссарий проекта
+export async function updateProjectGlossary(
+  projectId: string, 
+  glossary: GlossaryEntry[]
+): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}/glossary`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ glossary }),
+  });
+  if (!res.ok) throw new Error('Failed to update glossary');
   return res.json();
 }
 
