@@ -1,4 +1,6 @@
 // API клиент для работы с локальным Python сервером
+import { RulateSettings, PublishJobRequest } from '@/types';
+
 const API_BASE = 'http://127.0.0.1:8000';
 
 export interface ApiProject {
@@ -8,6 +10,7 @@ export interface ApiProject {
   glossary: GlossaryEntry[];
   system_prompt: string;
   created_at: string;
+  rulate_settings?: RulateSettings;
 }
 
 export interface ApiChapter {
@@ -15,7 +18,8 @@ export interface ApiChapter {
   title: string;
   original_text?: string;
   translated_text?: string;
-  status: 'pending' | 'translating' | 'completed';
+  status: 'pending' | 'translating' | 'completed' | 'publishing' | 'published';
+  rulate_chapter_id?: string;
 }
 
 export interface GlossaryEntry {
@@ -40,8 +44,8 @@ export interface TranslateJobRequest {
   provider?: 'google' | 'local_bridge' | 'openrouter';
   target_service?: 'perplexity' | 'google_ai_studio';
   model?: string;
-  chapters_content?: string; // Форматированный контент глав для отправки
-  glossary?: GlossaryEntry[]; // Глоссарий для пакета
+  chapters_content?: string;
+  glossary?: GlossaryEntry[];
 }
 
 export interface TranslateJobResponse {
@@ -129,7 +133,7 @@ export async function replaceGlossaryTerm(
   return res.json();
 }
 
-// Agent API endpoints (для локального агента)
+// Agent API endpoints
 export async function getAgentJob(): Promise<any> {
   const res = await fetch(`${API_BASE}/agent-api/get-job`);
   if (!res.ok) throw new Error('Failed to get job');
@@ -152,7 +156,7 @@ export async function submitAgentJob(result: {
 // Проверка доступности сервера
 export async function checkServerHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/api/projects`, { 
+    const res = await fetch(`${API_BASE}/api/health`, { 
       method: 'GET',
       signal: AbortSignal.timeout(2000)
     });
@@ -190,4 +194,81 @@ export async function acknowledgeTranslation(projectId: string, chapterIds: stri
   } catch {
     // Игнорируем ошибки
   }
+}
+
+// === Rulate Settings API ===
+
+export async function getRulateSettings(projectId: string): Promise<RulateSettings> {
+  try {
+    const res = await fetch(`${API_BASE}/api/rulate/settings/${projectId}`);
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        bookUrl: data.book_url || '',
+        chapterStatus: data.chapter_status || 'ready',
+        delayedChapter: data.delayed_chapter ?? true,
+        subscriptionOnly: data.subscription_only ?? true,
+        addAsTranslation: data.add_as_translation ?? true,
+      };
+    }
+  } catch {
+    // Return defaults
+  }
+  return {
+    bookUrl: '',
+    chapterStatus: 'ready',
+    delayedChapter: true,
+    subscriptionOnly: true,
+    addAsTranslation: true,
+  };
+}
+
+export async function saveRulateSettings(projectId: string, settings: RulateSettings): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/rulate/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: projectId,
+        book_url: settings.bookUrl,
+        chapter_status: settings.chapterStatus,
+        delayed_chapter: settings.delayedChapter,
+        subscription_only: settings.subscriptionOnly,
+        add_as_translation: settings.addAsTranslation,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// === Publish API ===
+
+export async function sendPublishJob(request: PublishJobRequest): Promise<{ status: string; count?: number }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/publish/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    return { status: 'error' };
+  } catch {
+    return { status: 'error' };
+  }
+}
+
+export async function getPublishStatus(projectId: string): Promise<{ pending_jobs: number; total_queue: number }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/publish/status/${projectId}`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Ignore
+  }
+  return { pending_jobs: 0, total_queue: 0 };
 }

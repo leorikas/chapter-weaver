@@ -1,5 +1,5 @@
 import { Chapter } from '@/types';
-import { Check, ExternalLink, Loader2 } from 'lucide-react';
+import { Check, ExternalLink, Loader2, Upload, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 
@@ -7,7 +7,7 @@ interface ChapterListProps {
   chapters: Chapter[];
   selectedChapters: string[];
   onSelectionChange: (ids: string[]) => void;
-  chaptersWithHieroglyphs?: string[]; // ID глав с найденными иероглифами
+  chaptersWithHieroglyphs?: string[];
 }
 
 export function ChapterList({ 
@@ -33,6 +33,28 @@ export function ChapterList({
 
   const isSelected = (id: string) => selectedChapters.includes(id);
   const hasHieroglyphs = (id: string) => chaptersWithHieroglyphs.includes(id);
+
+  const getStatusIndicator = (chapter: Chapter) => {
+    if (chapter.status === 'translating') {
+      return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
+    }
+    if (chapter.status === 'publishing') {
+      return <Upload className="w-4 h-4 animate-pulse text-warning" />;
+    }
+    if (chapter.status === 'published') {
+      return <CheckCircle className="w-4 h-4 text-success" />;
+    }
+    if (chapter.status === 'translated' && !hasHieroglyphs(chapter.id)) {
+      return <div className="w-2 h-2 rounded-full bg-success" />;
+    }
+    return null;
+  };
+
+  const getStatusLabel = (chapter: Chapter) => {
+    if (chapter.status === 'publishing') return 'Публикация...';
+    if (chapter.status === 'published') return 'Опубликовано';
+    return null;
+  };
 
   return (
     <div className="space-y-2">
@@ -60,7 +82,7 @@ export function ChapterList({
             <h4 className={`font-medium ${
               hasHieroglyphs(chapter.id) 
                 ? 'text-destructive' 
-                : chapter.status === 'translated' 
+                : chapter.status === 'translated' || chapter.status === 'published'
                   ? 'text-foreground' 
                   : 'text-muted-foreground'
             }`}>
@@ -68,16 +90,13 @@ export function ChapterList({
             </h4>
             <p className="text-sm text-muted-foreground">
               Дата: {chapter.createdAt}
+              {getStatusLabel(chapter) && (
+                <span className="ml-2 text-xs text-warning">• {getStatusLabel(chapter)}</span>
+              )}
             </p>
           </div>
           
-          {chapter.status === 'translating' && (
-            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          )}
-          
-          {chapter.status === 'translated' && !hasHieroglyphs(chapter.id) && (
-            <div className="w-2 h-2 rounded-full bg-success" />
-          )}
+          {getStatusIndicator(chapter)}
           
           {hasHieroglyphs(chapter.id) && (
             <div className="text-xs text-destructive font-medium px-2 py-1 bg-destructive/20 rounded">
